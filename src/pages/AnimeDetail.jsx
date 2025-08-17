@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 const API_BASE_URL = 'https://api.jikan.moe/v4';
 const PLACEHOLDER_IMAGE = 'https://placehold.co/64x64/374151/E5E7EB?text=No+Img';
 
-// Custom hooks with improved error handling
+// Custom hook for API data with enhanced error handling
 const useApiData = (url, dependencies = []) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,18 @@ const useApiData = (url, dependencies = []) => {
       setLoading(true);
       if (!isRetry) setError(null);
       
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'AnimeList-App/1.0'
+        }
+      });
+
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const result = await response.json();
@@ -26,26 +37,33 @@ const useApiData = (url, dependencies = []) => {
         setError(null);
         setRetryCount(0);
       } else if (response.status === 404) {
-        setError('Data not found');
+        setError({ message: 'Data not found', type: 'not_found' });
         setData(null);
       } else if (response.status === 429) {
-        setError('Rate limit exceeded. Please try again later');
+        setError({ message: 'Rate limit exceeded. Please try again later', type: 'rate_limit' });
         setData(null);
       } else if (response.status >= 500) {
-        setError('Server error. Please try again later');
+        setError({ message: 'Server error. Please try again later', type: 'server_error' });
         setData(null);
       } else {
-        setError(`HTTP ${response.status}: ${response.statusText}`);
+        setError({ message: `HTTP ${response.status}: ${response.statusText}`, type: 'http_error' });
         setData(null);
       }
     } catch (err) {
+      let errorMessage = 'An unexpected error occurred';
+      let errorType = 'unknown';
+      
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setError('Network error. Please check your connection');
+        errorMessage = 'Network error. Please check your connection';
+        errorType = 'network';
       } else if (err.name === 'AbortError') {
-        setError('Request timeout. Please try again');
+        errorMessage = 'Request timeout. Please try again';
+        errorType = 'timeout';
       } else {
-        setError(err.message || 'An unexpected error occurred');
+        errorMessage = err.message;
       }
+      
+      setError({ message: errorMessage, type: errorType });
       setData(null);
     } finally {
       setLoading(false);
@@ -53,9 +71,8 @@ const useApiData = (url, dependencies = []) => {
   }, [url]);
 
   const retryWithDelay = useCallback(async () => {
-    if (retryCount < 3) {
+    if (retryCount < 3 && navigator.onLine) {
       setRetryCount(prev => prev + 1);
-      // Add exponential backoff delay
       const delay = Math.pow(2, retryCount) * 1000;
       await new Promise(resolve => setTimeout(resolve, delay));
       await fetchData(true);
@@ -76,7 +93,7 @@ const useApiData = (url, dependencies = []) => {
   };
 };
 
-// Small reusable components
+// Loading Spinner Component
 const LoadingSpinner = ({ size = 'md', text = 'Loading...' }) => {
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -93,16 +110,24 @@ const LoadingSpinner = ({ size = 'md', text = 'Loading...' }) => {
 };
 
 // Enhanced Error Message Component
-const ErrorMessage = ({ message, onRetry, retryCount = 0, maxRetries = 3 }) => (
+const ErrorMessage = ({ message, onRetry, retryCount = 0, maxRetries = 3, error = null }) => (
   <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-center">
     <div className="flex items-center justify-center mb-2">
       <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <p className="text-red-400 text-sm font-medium">{message}</p>
+      <p className="text-red-400 text-sm font-medium">
+        {error?.type === 'network' ? 'Connection Error' :
+         error?.type === 'timeout' ? 'Request Timeout' :
+         error?.type === 'rate_limit' ? 'Rate Limit' :
+         error?.type === 'not_found' ? 'Data Not Found' :
+         'Error'}
+      </p>
     </div>
     
-    {onRetry && retryCount < maxRetries && (
+    <p className="text-red-300 text-xs mb-3">{message || error?.message}</p>
+    
+    {onRetry && retryCount < maxRetries && navigator.onLine && (
       <div className="space-y-2">
         {retryCount > 0 && (
           <p className="text-xs text-gray-400">
@@ -118,9 +143,9 @@ const ErrorMessage = ({ message, onRetry, retryCount = 0, maxRetries = 3 }) => (
       </div>
     )}
     
-    {retryCount >= maxRetries && (
+    {(retryCount >= maxRetries || !navigator.onLine) && (
       <p className="text-xs text-gray-500 mt-2">
-        Maximum retry attempts reached
+        {!navigator.onLine ? 'No internet connection' : 'Maximum retry attempts reached'}
       </p>
     )}
   </div>
@@ -131,7 +156,7 @@ const NetworkStatus = ({ isOnline }) => {
   if (isOnline) return null;
   
   return (
-    <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 mb-4">
+    <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 mb-4 mx-8">
       <div className="flex items-center justify-center">
         <svg className="w-5 h-5 text-orange-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -266,7 +291,7 @@ const VideoPlayer = ({ video, index, type = 'promo' }) => {
   );
 };
 
-// Enhanced Episodes Preview Component with better error handling
+// Enhanced Episodes Preview Component
 const EpisodesPreview = ({ animeId, animeImage }) => {
   const episodesUrl = `${API_BASE_URL}/anime/${animeId}/episodes`;
   const videosUrl = `${API_BASE_URL}/anime/${animeId}/videos`;
@@ -358,29 +383,28 @@ const EpisodesPreview = ({ animeId, animeImage }) => {
     <div className="mt-8">
       <SectionTitle>Episodes & Videos</SectionTitle>
       
-      {/* Error Handling for Episodes */}
       {episodesError && (
         <div className="mb-6">
           <ErrorMessage 
-            message={`Episodes: ${episodesError}`} 
+            message={`Episodes: ${episodesError.message}`} 
             onRetry={retryEpisodes}
             retryCount={episodesRetryCount}
+            error={episodesError}
           />
         </div>
       )}
 
-      {/* Error Handling for Videos */}
       {videosError && !episodesError && (
         <div className="mb-6">
           <ErrorMessage 
-            message={`Videos: ${videosError}`} 
+            message={`Videos: ${videosError.message}`} 
             onRetry={retryVideos}
             retryCount={videosRetryCount}
+            error={videosError}
           />
         </div>
       )}
 
-      {/* Video Sections - Only show if videos loaded successfully */}
       {!videosError && videoSections.map(({ title, videos: sectionVideos, type }) => 
         sectionVideos?.length > 0 && (
           <div key={type} className="mb-8">
@@ -394,7 +418,6 @@ const EpisodesPreview = ({ animeId, animeImage }) => {
         )
       )}
 
-      {/* Episodes List - Only show if episodes loaded successfully */}
       {!episodesError && episodes.length > 0 && (
         <div>
           <h5 className="text-lg font-semibold text-red-500 mb-4">Episodes</h5>
@@ -404,7 +427,6 @@ const EpisodesPreview = ({ animeId, animeImage }) => {
         </div>
       )}
 
-      {/* No content available - Only show if no errors and no data */}
       {!hasError && !isLoading && videoSections.every(section => !section.videos?.length) && !episodes.length && (
         <div className="text-center py-12 text-gray-400">
           <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -418,13 +440,53 @@ const EpisodesPreview = ({ animeId, animeImage }) => {
   );
 };
 
-// Enhanced Character Card Component
-const CharacterCard = ({ character }) => {
+// Mobile-Responsive Character Card Component with 2-column grid layout
+const CharacterCard = ({ character, isMobile }) => {
   const japaneseVA = useMemo(() => 
     character.voice_actors?.find(actor => actor.language === 'Japanese'),
     [character.voice_actors]
   );
   
+  if (isMobile) {
+    // Mobile layout: 2-column grid format
+    return (
+      <div className="bg-gray-800 p-4 rounded-lg hover:bg-gray-750 transition-colors text-center">
+        {/* Character Image */}
+        <div className="flex-shrink-0 mb-3">
+          <OptimizedImage
+            src={character.character.images?.jpg?.image_url}
+            alt={character.character.name}
+            className="w-20 h-20 rounded-full object-cover border-2 border-gray-600 mx-auto"
+          />
+        </div>
+        
+        {/* Character Info */}
+        <div className="mb-3">
+          <h5 className="font-semibold text-white text-sm mb-1">{character.character.name}</h5>
+          <p className="text-gray-400 text-xs capitalize">{character.role}</p>
+        </div>
+
+        {/* Voice Actor Info (if available) */}
+        {japaneseVA && (
+          <>
+            <div className="flex-shrink-0 mb-2">
+              <OptimizedImage
+                src={japaneseVA.person.images?.jpg?.image_url}
+                alt={japaneseVA.person.name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-gray-600 mx-auto"
+              />
+            </div>
+            <div>
+              <h6 className="font-medium text-white text-xs mb-1">{japaneseVA.person.name}</h6>
+              <p className="text-gray-400 text-xs">Voice Actor</p>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout: original horizontal layout
   return (
     <div className="flex items-center justify-between bg-gray-800 p-4 rounded-lg hover:bg-gray-750 transition-colors">
       <div className="flex items-center space-x-4 flex-1">
@@ -460,7 +522,7 @@ const CharacterCard = ({ character }) => {
   );
 };
 
-// Enhanced Staff Card Component
+// Staff Card Component (always horizontal layout as requested)
 const StaffCard = ({ staffMember }) => (
   <div className="flex items-center bg-gray-800 p-4 rounded-lg hover:bg-gray-750 transition-colors">
     <div className="flex-shrink-0">
@@ -495,35 +557,46 @@ const PersonVoiceCard = ({ voice }) => (
   </div>
 );
 
-// Enhanced Sidebar Info Section Component with retry count
+// Enhanced Sidebar Info Section Component
 const SidebarInfoSection = ({ title, children, loading, error, onRetry, retryCount = 0 }) => (
   <div className="bg-gray-900 p-6 rounded-lg shadow-xl mt-6 space-y-4">
     <SidebarTitle>{title}</SidebarTitle>
     {loading ? (
       <LoadingSpinner size="sm" />
     ) : error ? (
-      <ErrorMessage message={error} onRetry={onRetry} retryCount={retryCount} />
+      <ErrorMessage 
+        message={error.message} 
+        onRetry={onRetry} 
+        retryCount={retryCount} 
+        error={error}
+      />
     ) : (
       children
     )}
   </div>
 );
 
-// Enhanced Main Anime Detail Page Component with comprehensive error handling
+// Main AnimeDetailPage Component with comprehensive error handling
 const AnimeDetailPage = ({ animeId, onBackClick }) => {
   // Network status
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 768);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('resize', checkIsMobile);
+    
+    checkIsMobile();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('resize', checkIsMobile);
     };
   }, []);
 
@@ -640,9 +713,10 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             
             <div className="mb-6">
               <ErrorMessage 
-                message={error || 'Anime data not found'} 
+                message={error?.message || 'Anime data not found'} 
                 onRetry={isOnline ? retryMain : null}
                 retryCount={mainRetryCount}
+                error={error}
               />
             </div>
 
@@ -680,19 +754,19 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
   return (
     <div className="bg-gray-950 text-white min-h-screen font-sans">
       {/* Header */}
-      <header className="py-6 px-8 flex justify-start items-center gap-6 bg-gray-900 shadow-md sticky top-0 z-50">
-        <button
-          onClick={onBackClick}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          Back
-        </button>
-        <h1 className="text-3xl font-extrabold text-red-500 tracking-wide">ZidaneAnimeList</h1>
-        
-        {/* Connection Status Indicator */}
+        <header className="py-4 px-6 flex items-center justify-between bg-gray-900 shadow-md sticky top-0 z-50 flex-wrap">
+          <button
+            onClick={onBackClick}
+            className="bg-red-500 text-white px-3 py-1 rounded-lg font-semibold hover:bg-red-600 transition-colors flex items-center text-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Back
+          </button>
+          <h1 className="text-2xl font-extrabold text-red-500 tracking-wide">ZidaneAnimeList</h1>
+          
+          {/* Connection Status Indicator */}
         {!isOnline && (
           <div className="ml-auto flex items-center text-orange-400">
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -709,7 +783,7 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
       <main className="p-8 container mx-auto">
         <div className="flex flex-col lg:flex-row gap-8">
           
-          {/* Main Content - Order 1 on mobile, 2 on desktop */}
+          {/* Main Content */}
           <div className="lg:w-2/3 lg:order-2 order-1">
             {/* Title and Genres */}
             <div className="mb-6">
@@ -767,25 +841,28 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
               </div>
             )}
 
-            {/* Cast Section with Enhanced Error Handling */}
+            {/* Cast Section with Enhanced Error Handling and Mobile Responsive Layout */}
             <div className="mt-8">
               <SectionTitle>Cast</SectionTitle>
               {charactersLoading ? (
                 <LoadingSpinner text="Loading characters..." />
               ) : charactersError ? (
                 <ErrorMessage 
-                  message={`Failed to load character data: ${charactersError}`} 
+                  message={`Failed to load character data: ${charactersError.message}`} 
                   onRetry={retryCharacters}
                   retryCount={charactersRetryCount}
+                  error={charactersError}
                 />
               ) : characters?.length > 0 ? (
-                <div className="space-y-4">
-                  {characters.slice(0, 8).map((character) => (
-                    <CharacterCard key={character.character.mal_id} character={character} />
+                <div className={`${isMobile ? 'grid grid-cols-2 gap-4' : 'space-y-4'}`}>
+                  {characters.slice(0, isMobile ? 6 : 8).map((character) => (
+                    <CharacterCard key={character.character.mal_id} character={character} isMobile={isMobile} />
                   ))}
-                  {characters.length > 8 && (
-                    <div className="text-center">
-                      <p className="text-gray-400 text-sm">Showing 8 of {characters.length} characters</p>
+                  {characters.length > (isMobile ? 6 : 8) && (
+                    <div className={`text-center ${isMobile ? 'col-span-2' : ''}`}>
+                      <p className="text-gray-400 text-sm">
+                        Showing {isMobile ? 6 : 8} of {characters.length} characters
+                      </p>
                     </div>
                   )}
                 </div>
@@ -799,16 +876,17 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
               )}
             </div>
 
-            {/* Staff Section with Enhanced Error Handling */}
+            {/* Staff Section with Enhanced Error Handling (Desktop layout only as requested) */}
             <div className="mt-8">
               <SectionTitle>Staff</SectionTitle>
               {staffLoading ? (
                 <LoadingSpinner text="Loading staff..." />
               ) : staffError ? (
                 <ErrorMessage 
-                  message={`Failed to load staff data: ${staffError}`} 
+                  message={`Failed to load staff data: ${staffError.message}`} 
                   onRetry={retryStaff}
                   retryCount={staffRetryCount}
+                  error={staffError}
                 />
               ) : staff?.length > 0 ? (
                 <div className="space-y-4">
@@ -843,9 +921,10 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
                 <LoadingSpinner text="Loading voice actors..." />
               ) : personVoicesError ? (
                 <ErrorMessage 
-                  message={`Failed to load voice actor data: ${personVoicesError}`} 
+                  message={`Failed to load voice actor data: ${personVoicesError.message}`} 
                   onRetry={retryPersonVoices}
                   retryCount={personVoicesRetryCount}
+                  error={personVoicesError}
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-4">
@@ -857,7 +936,7 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             </div>
           )}
 
-          {/* Sidebar - Order 2 on mobile, 1 on desktop */}
+          {/* Sidebar */}
           <div className="lg:w-1/3 lg:order-1 order-2 flex-shrink-0">
             {/* Desktop Image */}
             <div className="hidden lg:block mb-6">
@@ -908,7 +987,7 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             <SidebarInfoSection 
               title="Statistics" 
               loading={statisticsLoading} 
-              error={statisticsError ? `Statistics: ${statisticsError}` : null}
+              error={statisticsError}
               onRetry={retryStatistics}
               retryCount={statisticsRetryCount}
             >
@@ -942,7 +1021,7 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             <SidebarInfoSection 
               title="More Info" 
               loading={moreInfoLoading} 
-              error={moreInfoError && !animeData ? `More info: ${moreInfoError}` : null}
+              error={moreInfoError && !animeData ? moreInfoError : null}
               onRetry={retryMoreInfo}
               retryCount={moreInfoRetryCount}
             >
@@ -976,11 +1055,11 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             <SidebarInfoSection 
               title="Reviews" 
               loading={reviewsLoading} 
-              error={reviewsError ? `Reviews: ${reviewsError}` : (!reviews?.length ? "No reviews available" : null)}
+              error={reviewsError}
               onRetry={retryReviews}
               retryCount={reviewsRetryCount}
             >
-              {reviews?.length > 0 && (
+              {reviews?.length > 0 ? (
                 <div className="text-gray-300">
                   <p className="text-sm mb-3 text-red-400 font-semibold">Latest Review:</p>
                   <div className="bg-gray-800 p-4 rounded-lg">
@@ -1001,6 +1080,12 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
                     {reviews.length} total review{reviews.length > 1 ? 's' : ''}
                   </p>
                 </div>
+              ) : (
+                !reviewsError && (
+                  <div className="text-center py-4 text-gray-400">
+                    <p className="text-sm">No reviews available</p>
+                  </div>
+                )
               )}
             </SidebarInfoSection>
 
@@ -1008,11 +1093,11 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             <SidebarInfoSection 
               title="Streaming" 
               loading={streamingLoading} 
-              error={streamingError ? `Streaming: ${streamingError}` : (!streaming?.length ? "No streaming info available" : null)}
+              error={streamingError}
               onRetry={retryStreaming}
               retryCount={streamingRetryCount}
             >
-              {streaming?.length > 0 && (
+              {streaming?.length > 0 ? (
                 <div className="text-gray-300 space-y-3">
                   {streaming.map((stream, index) => (
                     <div key={index} className="flex items-center justify-between bg-gray-800 p-3 rounded-lg hover:bg-gray-750 transition-colors">
@@ -1035,6 +1120,12 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
                     </div>
                   ))}
                 </div>
+              ) : (
+                !streamingError && (
+                  <div className="text-center py-4 text-gray-400">
+                    <p className="text-sm">No streaming info available</p>
+                  </div>
+                )
               )}
             </SidebarInfoSection>
 
@@ -1042,11 +1133,11 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
             <SidebarInfoSection 
               title="Gallery" 
               loading={picturesLoading} 
-              error={picturesError ? `Gallery: ${picturesError}` : (!pictures?.length ? "No pictures available" : null)}
+              error={picturesError}
               onRetry={retryPictures}
               retryCount={picturesRetryCount}
             >
-              {pictures?.length > 0 && (
+              {pictures?.length > 0 ? (
                 <div>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     {pictures.slice(0, 6).map((pic, index) => (
@@ -1066,6 +1157,12 @@ const AnimeDetailPage = ({ animeId, onBackClick }) => {
                     </p>
                   )}
                 </div>
+              ) : (
+                !picturesError && (
+                  <div className="text-center py-4 text-gray-400">
+                    <p className="text-sm">No pictures available</p>
+                  </div>
+                )
               )}
             </SidebarInfoSection>
           </div>
