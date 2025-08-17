@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import AnimeCard from '../components/AnimeCard.jsx';
+import AnimeCard from '../components/AnimeCard';
 
 const HomePage = ({ onCardClick }) => {
   const [popularAnime, setPopularAnime] = useState([]);
