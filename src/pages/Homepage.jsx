@@ -1,5 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import AnimeCard from '../components/AnimeCard.jsx';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+// =========================================================================
+// Perbaikan: Komponen AnimeCard dipindahkan ke file ini agar tidak ada error impor.
+// =========================================================================
+const AnimeCard = ({ anime, onCardClick }) => {
+  const imageUrl = anime?.images?.webp?.large_image_url || 'https://placehold.co/225x318/374151/E5E7EB?text=No+Image';
+
+  return (
+    <div
+      onClick={() => onCardClick(anime.mal_id)}
+      className="bg-gray-800 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl hover:scale-105 transition-all cursor-pointer"
+    >
+      <img
+        src={imageUrl}
+        alt={anime.title}
+        className="w-full h-72 object-cover object-center"
+        // Fallback for broken images
+        onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/225x318/374151/E5E7EB?text=No+Image'; }}
+      />
+      <div className="p-4">
+        <h3 className="text-lg font-semibold text-white line-clamp-2 min-h-[3rem]">{anime.title}</h3>
+        <p className="text-gray-400 text-sm mt-1">{anime.type} ({anime.year || 'N/A'})</p>
+        <div className="flex items-center mt-2">
+          <svg className="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+          <span className="text-yellow-400 font-bold text-sm">{anime.score || 'N/A'}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+// =========================================================================
 
 const HomePage = ({ onCardClick }) => {
   const [popularAnime, setPopularAnime] = useState([]);
@@ -17,7 +49,6 @@ const HomePage = ({ onCardClick }) => {
     search: false,
   });
   
-  // Enhanced error state with more details
   const [errors, setErrors] = useState({
     popular: null,
     season: null,
@@ -26,7 +57,6 @@ const HomePage = ({ onCardClick }) => {
     search: null,
   });
 
-  // Retry counts for each section
   const [retryCounts, setRetryCounts] = useState({
     popular: 0,
     season: 0,
@@ -36,7 +66,7 @@ const HomePage = ({ onCardClick }) => {
   });
 
   const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // 1 second
+  const RETRY_DELAY = 1000;
 
   const updateLoadingState = useCallback((key, value) => {
     setLoadingStates(prev => ({ ...prev, [key]: value }));
@@ -65,7 +95,6 @@ const HomePage = ({ onCardClick }) => {
     setRetryCounts(prev => ({ ...prev, [section]: 0 }));
   }, []);
 
-  // Enhanced fetch function with better error handling
   const fetchWithRetry = useCallback(async (url, section, setter, retryCount = 0) => {
     try {
       updateLoadingState(section, true);
@@ -74,7 +103,7 @@ const HomePage = ({ onCardClick }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-      }, 10000); // 10 second timeout
+      }, 10000);
 
       const response = await fetch(url, {
         signal: controller.signal,
@@ -125,10 +154,6 @@ const HomePage = ({ onCardClick }) => {
         throw new Error('No data available in response');
       }
 
-      if (data.data.length === 0) {
-        throw new Error('Empty data received');
-      }
-
       setter(data.data);
       resetRetryCount(section);
       console.log(`✅ ${section} data loaded successfully: ${data.data.length} items`);
@@ -147,14 +172,13 @@ const HomePage = ({ onCardClick }) => {
         errorType = 'network';
       }
 
-      // Retry logic
       if (retryCount < MAX_RETRIES && errorType !== 'timeout') {
         console.log(`🔄 Retrying ${section} (attempt ${retryCount + 1}/${MAX_RETRIES})`);
         incrementRetryCount(section);
         
         setTimeout(() => {
           fetchWithRetry(url, section, setter, retryCount + 1);
-        }, RETRY_DELAY * (retryCount + 1)); // Exponential backoff
+        }, RETRY_DELAY * (retryCount + 1));
         
         return;
       }
@@ -166,7 +190,6 @@ const HomePage = ({ onCardClick }) => {
     }
   }, [updateLoadingState, clearErrorForSection, setErrorForSection, resetRetryCount, incrementRetryCount]);
 
-  // Enhanced search with better error handling
   const handleSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -182,7 +205,7 @@ const HomePage = ({ onCardClick }) => {
       const url = `https://api.jikan.moe/v4/anime?q=${encodedQuery}&limit=20&order_by=popularity&sort=asc`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for search
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(url, {
         signal: controller.signal,
@@ -229,7 +252,6 @@ const HomePage = ({ onCardClick }) => {
     }
   }, [updateLoadingState, clearErrorForSection, setErrorForSection]);
 
-  // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {
@@ -254,7 +276,6 @@ const HomePage = ({ onCardClick }) => {
     clearErrorForSection('search');
   }, [clearErrorForSection]);
 
-  // Retry function for individual sections
   const retrySection = useCallback((section) => {
     const urlMap = {
       popular: 'https://api.jikan.moe/v4/top/anime',
@@ -275,35 +296,34 @@ const HomePage = ({ onCardClick }) => {
     } else if (urlMap[section] && setterMap[section]) {
       fetchWithRetry(urlMap[section], section, setterMap[section]);
     }
-  }, [fetchWithRetry, searchQuery, handleSearch]);
+  }, [fetchWithRetry, searchQuery, handleSearch, fetchSpecificAnimeIds]);
 
-  // Enhanced recommended anime fetching
   const fetchSpecificAnimeIds = useCallback(async () => {
     try {
       updateLoadingState('recommended', true);
       clearErrorForSection('recommended');
       
       const selectedIds = [
-        21,    // One Piece
-        1535,  // Death Note
-        22319, // Tokyo Ghoul
-        20,    // Naruto
-        40748, // Jujutsu Kaisen
-        31240, // Re:Zero
-        30831, // KonoSuba
-        40052, // Dr. Stone
-        34572, // Black Clover
-        39551, // Tensura
-        24833, // Ansatsu Kyoushitsu
-        37999, // Kaguya-sama
-        33255, // Saiki Kusuo
-        23755, // Nanatsu no Taizai
-        28171, // Shokugeki no Souma
-        19815, // No Game No Life
-        14719, // JoJo's Bizarre Adventure
-        36035, // Grand Blue
-        49596, // Blue Lock
-        11757  // Sword Art Online
+        21,    
+        1535,  
+        22319, 
+        20,    
+        40748, 
+        31240, 
+        30831, 
+        40052, 
+        34572, 
+        39551, 
+        24833, 
+        37999, 
+        33255, 
+        23755, 
+        28171, 
+        19815, 
+        14719, 
+        36035, 
+        49596, 
+        11757 
       ];
 
       const animePromises = selectedIds.map(async (id) => {
@@ -360,7 +380,6 @@ const HomePage = ({ onCardClick }) => {
     }
   }, [updateLoadingState, clearErrorForSection, setErrorForSection, resetRetryCount]);
 
-  // Initial data loading
   useEffect(() => {
     const loadInitialData = async () => {
       const fetchPromises = [
@@ -381,13 +400,11 @@ const HomePage = ({ onCardClick }) => {
     loadInitialData();
   }, [fetchWithRetry, fetchSpecificAnimeIds]);
 
-  // Loading and error state checks
   const isAllLoading = Object.values(loadingStates).some(loading => loading);
   const isInitialLoading = loadingStates.popular && loadingStates.season && 
-                          loadingStates.recommended && loadingStates.upcoming;
+                           loadingStates.recommended && loadingStates.upcoming;
   const isAllError = errors.popular && errors.season && errors.recommended && errors.upcoming;
 
-  // Error display component
   const ErrorDisplay = ({ section, error, onRetry }) => (
     <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-6 text-center">
       <div className="flex items-center justify-center mb-3">
@@ -659,18 +676,18 @@ const HomePage = ({ onCardClick }) => {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-400">
-                <p>No anime found</p>
+                <p>Gak ada anime populer yang lu cari hahay</p>
               </div>
             )}
           </section>
         )}
 
-         <footer className="mt-12 text-gray-400 p-8 bg-gray-900 rounded-t-lg">
+        <footer className="mt-12 text-gray-400 p-8 bg-gray-900 rounded-t-lg">
           <div className="container mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <h4 className="font-bold text-white text-xl">Made with ❤️ by Zidane</h4>
             <div className="flex flex-wrap items-center justify-center space-x-4">
               {/* <!-- instagram --> */}
-              <a href="https://www.instagram.com/zsn2.0?igsh=ejIyN3dpYzVnNXF4" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg"
                   className="fill-current">
@@ -680,7 +697,7 @@ const HomePage = ({ onCardClick }) => {
                 </svg>
               </a>
               {/* <!-- facebook --> */}
-              <a href="https://www.facebook.com/share/1FuuyJmXxo/" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" width="20" className="fill-current" viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg">
@@ -690,7 +707,7 @@ const HomePage = ({ onCardClick }) => {
                 </svg>
               </a>
               {/* <!-- tiktok --> */}
-              <a href="https://www.tiktok.com/@zidanesolahudin7?_t=ZS-8ywj8KrMiFM&_r=1" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" width="20" className="fill-current" viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg">
@@ -700,7 +717,7 @@ const HomePage = ({ onCardClick }) => {
                 </svg>
               </a>
               {/* <!-- github --> */}
-              <a href="https://github.com/Hotaru-git3" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" width="20" className="fill-current" viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg">
@@ -710,7 +727,7 @@ const HomePage = ({ onCardClick }) => {
                 </svg>
               </a>
               {/* <!-- linkedIn --> */}
-              <a href="https://www.linkedin.com/in/zidane-solahudin-573933345?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" className="fill-current" x="0px" y="0px"
                     height="100" viewBox="0 0 50 50">
@@ -719,8 +736,7 @@ const HomePage = ({ onCardClick }) => {
                   </path>
                 </svg>
               </a>
-              {/* Spotify */}
-              <a href="https://open.spotify.com/user/7kqio7ok8ae5vorec2jl51stb?si=3edDHX9rRgKsZSI4NjouMw" target="_blank" rel="noopener noreferrer"
+              <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" width="30" className="fill-current" viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg">
