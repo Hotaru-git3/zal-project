@@ -798,10 +798,10 @@ const HomePage = ({ onCardClick }) => {
           </section>
         )}
 
-        <footer className="mt-12 text-gray-400 p-8 bg-gray-900 rounded-t-lg">
+        <footer className="mt-12 text-gray-400 p-4 sm:p-8 bg-gray-900 rounded-t-lg">
           <div className="container mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <h4 className="font-bold text-white text-xl">Made with ❤️ by Zidane</h4>
-            <div className="flex flex-wrap items-center justify-center space-x-4">
+            <h4 className="font-bold text-white text-xl text-center md:text-left">Made with ❤️ by Zidane</h4>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:space-x-4">
               <a href="" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white rounded-full text-white flex justify-center items-center hover:bg-rose-500 hover:text-slate-900 transition-colors">
                 <svg role="img" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-current">
