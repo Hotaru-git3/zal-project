@@ -1,7 +1,7 @@
 // src/components/AnimeCard.jsx
 import React from 'react';
 
-const AnimeCard = ({ anime, onCardClick }) => {
+const Animecard = ({ anime, onCardClick }) => {
   return (
     <div 
       className="bg-gray-800 rounded-lg overflow-hidden shadow-xl transform transition-all duration-500 ease-in-out hover:scale-105 hover:shadow-2xl cursor-pointer relative group"
@@ -28,4 +28,4 @@ const AnimeCard = ({ anime, onCardClick }) => {
   );
 };
 
-export default AnimeCard;
+export default Animecard;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import AnimeCard from '../components/AnimeCard';
+import Animecard from '../components/Animecard';
 
 const HomePage = ({ onCardClick }) => {
   const [popularAnime, setPopularAnime] = useState([]);
@@ -490,7 +490,7 @@ const HomePage = ({ onCardClick }) => {
                 <p className="text-gray-400 text-sm mb-4">Found {searchResults.length} results</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                   {searchResults.map((anime) => (
-                    <AnimeCard key={`search-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
+                    <Animecard key={`search-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
                   ))}
                 </div>
               </>
@@ -526,7 +526,7 @@ const HomePage = ({ onCardClick }) => {
             ) : recommendedAnime.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {recommendedAnime.map((anime) => (
-                  <AnimeCard key={`recommended-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
+                  <Animecard key={`recommended-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
                 ))}
               </div>
             ) : (
@@ -557,7 +557,7 @@ const HomePage = ({ onCardClick }) => {
             ) : seasonAnime.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {seasonAnime.map((anime) => (
-                  <AnimeCard key={`season-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
+                  <Animecard key={`season-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
                 ))}
               </div>
             ) : (
@@ -588,7 +588,7 @@ const HomePage = ({ onCardClick }) => {
             ) : upcomingAnime.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {upcomingAnime.map((anime) => (
-                  <AnimeCard key={`upcoming-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
+                  <Animecard key={`upcoming-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
                 ))}
               </div>
             ) : (
@@ -619,7 +619,7 @@ const HomePage = ({ onCardClick }) => {
             ) : popularAnime.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {popularAnime.map((anime) => (
-                  <AnimeCard key={`popular-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
+                  <Animecard key={`popular-${anime.mal_id}`} anime={anime} onCardClick={onCardClick} />
                 ))}
               </div>
             ) : (
