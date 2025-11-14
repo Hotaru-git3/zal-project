@@ -23,8 +23,16 @@ const Animecard = ({ anime, onCardClick }) => {
       onMouseLeave={() => !isMobile && setIsHovered(false)}
       onTouchStart={() => isMobile && setIsHovered(true)}
       onTouchEnd={() => isMobile && setTimeout(() => setIsHovered(false), 2000)}
-      // 1. TAMBAHKAN hover:scale-105 dan duration-300
-      className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer relative group"
+      
+      // ================================================================
+      // PERUBAHAN DI SINI:
+      // Kita hapus 'hover:scale-105' dan 'hover:shadow-xl'
+      // dan kita gunakan state 'isHovered' untuk mengontrolnya.
+      // ================================================================
+      className={`
+        bg-white rounded-lg overflow-hidden transition-all duration-300 cursor-pointer relative group
+        ${isHovered ? 'scale-105 shadow-xl' : 'shadow-lg'}
+      `}
     >
       <img
         src={imageUrl}
@@ -36,13 +44,11 @@ const Animecard = ({ anime, onCardClick }) => {
         }}
       />
 
-      {/* 2. UBAH LOGIKA className INI */}
+      {/* Overlay untuk mobile (tidak berubah) */}
       <div className={`
         absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-end p-4 transition-all duration-300
-        ${/* Logika ini HANYA akan menampilkan overlay di mobile, tidak di desktop */''}
         ${(isMobile && isHovered) ? 'opacity-100' : 'opacity-0'}
       `}>
-        {/* Konten overlay ini (judul, rating) sekarang hanya muncul di mobile */}
         <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">{anime.title}</h3>
         <div className="flex items-center justify-between">
           <p className="text-gray-300 text-sm">{anime.type} ({anime.year || 'N/A'})</p>
@@ -55,7 +61,7 @@ const Animecard = ({ anime, onCardClick }) => {
         </div>
       </div>
 
-      {/* Desktop card info (ini akan selalu terlihat) */}
+      {/* Desktop card info (tidak berubah) */}
       <div className={`p-4 ${isMobile ? 'hidden' : 'block'}`}>
         <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 min-h-[3rem]">{anime.title}</h3>
         <p className="text-gray-600 text-sm mt-1">{anime.type} ({anime.year || 'N/A'})</p>
