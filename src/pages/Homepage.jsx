@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { queuedFetch } from '../api/jikanQueue';
 import { useApiData } from '../hooks/useApiData';
-import Animecard from '../components/AnimeCard'; // <-- Impor komponen kartu
+import Animecard from '../components/Animecard'; // <-- Impor komponen kartu
 
 // =========================================================================
 // ErrorDisplay - Tampilan error versi light mode
