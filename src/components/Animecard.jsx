@@ -47,7 +47,7 @@ const Animecard = ({ anime, onCardClick }) => {
       {/* Overlay untuk mobile (tidak berubah) */}
       <div className={`
         absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-end p-4 transition-all duration-300
-        ${(isMobile && isHovered) ? 'opacity-100' : 'opacity-0'}
+        ${(isMobile && isHovered) ? 'scale-105' : 'opacity-0'}
       `}>
         <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">{anime.title}</h3>
         <div className="flex items-center justify-between">
